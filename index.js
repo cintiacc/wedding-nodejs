@@ -150,6 +150,33 @@ app.post('/presentes', async (req, res) => {
   }
 });
 
+// ROTA PARA ATUALIZAR UM PRESENTE
+app.put('/presentes/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nomePresente, imagemPresente, linkPresente } = req.body;
+
+    if (!nomePresente || !linkPresente) {
+      return res.status(400).json({ mensagem: 'Nome e link são obrigatórios.' });
+    }
+
+    const [result] = await pool.query(
+      'UPDATE presentes SET nome = ?, imagem = ?, link = ? WHERE id = ?',
+      [nomePresente, imagemPresente, linkPresente, id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ mensagem: 'Presente não encontrado.' });
+    }
+
+    return res.status(200).json({ mensagem: 'Presente atualizado com sucesso!' });
+  } catch (error) {
+    console.error('Erro ao atualizar presente:', error);
+    return res.status(500).json({ mensagem: 'Erro ao atualizar presente' });
+  }
+});
+
+
 //ROTA PARA LISTAR PRESENTES
 app.get('/presentes', async (req, res) => {
   try {
