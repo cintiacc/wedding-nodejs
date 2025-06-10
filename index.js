@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors({
   origin: 'http://localhost:5173',
-  methods: ['GET', 'POST', 'PUT', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'OPTIONS', 'DELETE'],
 }));
 app.use(express.json());
 
@@ -34,30 +34,91 @@ pool.getConnection()
   .then(() => console.log('✅ Conectado ao MySQL com sucesso!'))
   .catch(err => console.error('❌ Erro ao conectar ao MySQL:', err));
 
-// Rotas
-app.post('/confirmar-presenca', async (req, res) => {
-  const { nome, levarAcompanhante, acompanhantes, temRestricao, restricao } = req.body;
+
+// POST - cadastrar convidado (ATUALIZADO)
+app.post('/cadastrar-convidado', async (req, res) => {
+  const { nome, telefone } = req.body;
+
+  if (!nome || !telefone) {
+    return res.status(400).json({ mensagem: 'Nome e telefone são obrigatórios.' });
+  }
 
   try {
     const [result] = await pool.query(
-      `INSERT INTO confirmacoes_presenca 
-        (nome, levar_acompanhante, acompanhantes, tem_restricao, restricao) 
-       VALUES (?, ?, ?, ?, ?)`,
-      [
-        nome,
-        levarAcompanhante,
-        JSON.stringify(acompanhantes),
-        temRestricao,
-        restricao || null
-      ]
+      `INSERT INTO confirmacoes_presenca (nome, telefone) VALUES (?, ?)`,
+      [nome, telefone]
     );
 
-    console.log('Resultado do insert:', result);
-
-    res.json({ mensagem: 'Confirmação de presença salva com sucesso!', id: result.insertId });
+    res.json({ mensagem: 'Convidado cadastrado com sucesso!', id: result.insertId });
   } catch (error) {
     console.error('Erro ao salvar no banco:', error);
-    res.status(500).json({ mensagem: 'Erro ao salvar a confirmação' });
+    res.status(500).json({ mensagem: 'Erro ao salvar o convidado' });
+  }
+});
+
+
+// GET - listar todos os convidados
+app.get('/convidados', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM confirmacoes_presenca');
+    res.json(rows);
+  } catch (error) {
+    console.error('Erro ao buscar convidados:', error);
+    res.status(500).json({ mensagem: 'Erro ao buscar convidados' });
+  }
+});
+
+// GET - listar convidados confirmados
+app.get('/convidados/confirmados', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM confirmacoes_presenca WHERE Confirmado = 1');
+    res.json(rows);
+  } catch (error) {
+    console.error('Erro ao buscar convidados confirmados:', error);
+    res.status(500).json({ mensagem: 'Erro ao buscar convidados confirmados' });
+  }
+});
+
+// GET - buscar convidado pelo ID
+app.get('/convidados/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const [rows] = await pool.query(
+      'SELECT * FROM confirmacoes_presenca WHERE id = ?',
+      [id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ mensagem: 'Convidado não encontrado' });
+    }
+
+    res.json(rows[0]);
+  } catch (error) {
+    console.error('Erro ao buscar convidado:', error);
+    res.status(500).json({ mensagem: 'Erro ao buscar convidado' });
+  }
+});
+
+
+// PUT - confirmar presença do convidado pelo ID
+app.put('/confirmar-presenca/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const [result] = await pool.query(
+      `UPDATE confirmacoes_presenca SET Confirmado = 1 WHERE id = ?`,
+      [id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ mensagem: 'Convidado não encontrado' });
+    }
+
+    res.json({ mensagem: `Presença confirmada para o convidado com ID ${id}` });
+  } catch (error) {
+    console.error('Erro ao confirmar presença:', error);
+    res.status(500).json({ mensagem: 'Erro ao confirmar presença' });
   }
 });
 
@@ -173,6 +234,46 @@ app.put('/presentes/:id', async (req, res) => {
   } catch (error) {
     console.error('Erro ao atualizar presente:', error);
     return res.status(500).json({ mensagem: 'Erro ao atualizar presente' });
+  }
+});
+
+// ROTA PARA DELETAR UM PRESENTE
+app.delete('/presentes/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [result] = await pool.query('DELETE FROM presentes WHERE id = ?', [id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ mensagem: 'Presente não encontrado.' });
+    }
+
+    return res.status(200).json({ mensagem: 'Presente excluído com sucesso!' });
+  } catch (error) {
+    console.error('Erro ao excluir presente:', error);
+    return res.status(500).json({ mensagem: 'Erro ao excluir presente.' });
+  }
+});
+
+
+// ROTA PARA BUSCAR UM PRESENTE PELO ID
+app.get('/presentes/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [rows] = await pool.query(
+      'SELECT id, nome AS nomePresente, imagem AS imagemPresente, link AS linkPresente FROM presentes WHERE id = ?',
+      [id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ mensagem: 'Presente não encontrado.' });
+    }
+
+    res.status(200).json(rows[0]);
+  } catch (error) {
+    console.error('Erro ao buscar presente:', error);
+    res.status(500).json({ mensagem: 'Erro ao buscar presente.' });
   }
 });
 
