@@ -1,8 +1,10 @@
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2/promise');
 const jwt = require('jsonwebtoken');
-const JWT_SECRET = 'meuSegredoUltraSecreto123!';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,10 +23,10 @@ app.use((req, res, next) => {
 
 // Configuração da conexão MySQL
 const pool = mysql.createPool({
-  host: 'localhost',
-  user: 'root',
-  password: '',
-  database: 'wedding',
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
